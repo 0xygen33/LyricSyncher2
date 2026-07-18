@@ -23,27 +23,24 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Create App Structure
+      - name: Build App
         run: |
           npm install -g cordova
-          # Creato con l'id e il nome corretti
           cordova create myApp com.lyricsyncher2.app "LyricSyncher 2"
           cd myApp
-          cp ../index.html www/index.html
-          cordova platform add android
-
-      - name: Override Icons and Build
-        run: |
-          cd myApp
-          # Sovrascrive le icone con la tua icon.png prima del build
-          find platforms/android -name "ic_launcher*.png" -exec cp ../icon.png {} \;
           
-          # Compila
-          cordova build android --debug
+          cp ../index.html www/index.html
+          cp ../icon.png icon.png
+          
+          # Inietta la configurazione sia per l'icona dell'app che per lo splash screen
+          sed -i 's|</widget>|    <icon src="icon.png" />\n    <splash src="icon.png" />\n    <preference name="AndroidWindowSplashScreenAnimatedIcon" value="icon.png" />\n</widget>|' config.xml
+          
+          cordova platform add android
+          cordova build android --debug -- --cdvBuildMultipleApks=true
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: LyricSyncher2-APK
-          path: myApp/platforms/android/app/build/outputs/apk/debug/app-debug.apk
+          path: myApp/platforms/android/app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
           
