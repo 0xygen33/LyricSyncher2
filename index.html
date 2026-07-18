@@ -44,6 +44,68 @@
             margin-top: 0;
         }
 
+        .toggle-wrapper {
+            background: #222227;
+            padding: 15px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            border: 1px solid #3f3f46;
+        }
+        
+        .toggle-label {
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+        
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #3f3f46;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: var(--accent-color);
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+
         .input-group {
             margin-bottom: 15px;
         }
@@ -100,30 +162,6 @@
             margin-top: 15px;
         }
 
-        /* Link discreto per la pagina di download */
-        .app-link-container {
-            text-align: center;
-            margin-top: 25px;
-            padding-top: 15px;
-            border-top: 1px solid #27272a;
-        }
-
-        .app-link {
-            color: var(--text-muted);
-            font-size: 13px;
-            text-decoration: none;
-            transition: color 0.2s;
-        }
-
-        .app-link strong {
-            color: var(--accent-color);
-        }
-
-        .app-link:hover {
-            opacity: 0.9;
-        }
-
-        /* Schermata di Sincronizzazione Mobile */
         #sync-workspace {
             display: none;
             text-align: center;
@@ -162,7 +200,12 @@
             word-break: break-word;
         }
 
-        /* Area Touch Gigante per il Pollice */
+        #touch-pad-agents {
+            display: none;
+            gap: 10px;
+            width: 100%;
+        }
+
         .touch-pad {
             width: 100%;
             height: 220px;
@@ -178,6 +221,11 @@
             user-select: none;
             -webkit-user-select: none;
             touch-action: manipulation;
+        }
+
+        .agent-pad {
+            flex: 1;
+            font-size: 32px;
         }
 
         .touch-pad:active {
@@ -203,7 +251,6 @@
             border: 1px solid #451a1a;
         }
 
-        /* Schermata Risultato */
         #result-area {
             display: none;
         }
@@ -227,6 +274,15 @@
 <div class="container">
     <div id="setup-area">
         <h1>LyricSyncher</h1>
+
+        <div class="toggle-wrapper">
+            <span class="toggle-label">Enable Multi-Voice (V1/V2)</span>
+            <label class="switch">
+                <input type="checkbox" id="multi-voice-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+
         <div class="input-group">
             <label>1. Upload audio track</label>
             <input type="file" id="audio-input" accept="audio/*">
@@ -236,10 +292,6 @@
             <textarea id="lyrics-input" placeholder="Paste here... each line will be considered a different verse."></textarea>
         </div>
         <button id="start-sync-btn">Start Synchronization</button>
-
-        <div class="app-link-container">
-            <a href="download.html" class="app-link">Looking for the Android App? <strong>Get the APK</strong></a>
-        </div>
     </div>
 
     <div id="sync-workspace">
@@ -250,7 +302,14 @@
             <div class="current-word" id="active-word">-</div>
         </div>
 
-        <div id="touch-pad" class="touch-pad">TAP (SYNC)</div>
+        <div id="touch-pad-container">
+            <div id="touch-pad" class="touch-pad">TAP (SYNC)</div>
+            
+            <div id="touch-pad-agents">
+                <div id="touch-pad-v1" class="touch-pad agent-pad">V1</div>
+                <div id="touch-pad-v2" class="touch-pad agent-pad">V2</div>
+            </div>
+        </div>
 
         <div class="control-rows">
             <button id="undo-btn" class="btn-undo">↩ Undo</button>
@@ -274,6 +333,7 @@
     let currentWordIndex = 0;
     let formattedResult = "";
 
+    const multiVoiceToggle = document.getElementById('multi-voice-toggle');
     const audioInput = document.getElementById('audio-input');
     const lyricsInput = document.getElementById('lyrics-input');
     const startSyncBtn = document.getElementById('start-sync-btn');
@@ -283,7 +343,12 @@
     const audioPlayer = document.getElementById('audio-player');
     const activeWordSpan = document.getElementById('active-word');
     const progressIndicator = document.getElementById('progress-indicator');
+    
     const touchPad = document.getElementById('touch-pad');
+    const touchPadAgents = document.getElementById('touch-pad-agents');
+    const touchPadV1 = document.getElementById('touch-pad-v1');
+    const touchPadV2 = document.getElementById('touch-pad-v2');
+    
     const undoBtn = document.getElementById('undo-btn');
     const skipBtn = document.getElementById('skip-btn');
 
@@ -308,6 +373,14 @@
             return;
         }
 
+        if (multiVoiceToggle.checked) {
+            touchPad.style.display = 'none';
+            touchPadAgents.style.display = 'flex';
+        } else {
+            touchPad.style.display = 'flex';
+            touchPadAgents.style.display = 'none';
+        }
+
         audioPlayer.src = URL.createObjectURL(file);
         originalLines = text.split('\n');
         wordsQueue = [];
@@ -327,7 +400,8 @@
                     isLineStart: wordIndex === 0,
                     isEmptyLine: false,
                     lineIndex: lineIndex,
-                    timestamp: null
+                    timestamp: null,
+                    agent: null
                 });
             });
         });
@@ -354,23 +428,27 @@
         undoBtn.disabled = currentWordIndex === 0;
     }
 
-    function handleSync() {
+    function handleSync(agent = null) {
         if (audioPlayer.paused) audioPlayer.play();
         if (currentWordIndex >= wordsQueue.length) return;
 
         wordsQueue[currentWordIndex].timestamp = audioPlayer.currentTime;
+        if (agent) {
+            wordsQueue[currentWordIndex].agent = agent;
+        }
+        
         currentWordIndex++;
         updateWorkspace();
     }
 
-    touchPad.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        handleSync();
-    });
-    touchPad.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        if (!('ontouchstart' in window)) handleSync();
-    });
+    touchPad.addEventListener('touchstart', (e) => { e.preventDefault(); handleSync(); });
+    touchPad.addEventListener('mousedown', (e) => { e.preventDefault(); if (!('ontouchstart' in window)) handleSync(); });
+
+    touchPadV1.addEventListener('touchstart', (e) => { e.preventDefault(); handleSync('1'); });
+    touchPadV1.addEventListener('mousedown', (e) => { e.preventDefault(); if (!('ontouchstart' in window)) handleSync('1'); });
+
+    touchPadV2.addEventListener('touchstart', (e) => { e.preventDefault(); handleSync('2'); });
+    touchPadV2.addEventListener('mousedown', (e) => { e.preventDefault(); if (!('ontouchstart' in window)) handleSync('2'); });
 
     undoBtn.addEventListener('click', () => {
         if (currentWordIndex > 0) {
@@ -379,6 +457,7 @@
                 currentWordIndex--;
             }
             wordsQueue[currentWordIndex].timestamp = null;
+            wordsQueue[currentWordIndex].agent = null;
             updateWorkspace();
         }
     });
@@ -410,7 +489,11 @@
             if (item.isLineStart) {
                 if (currentLineIndex !== -1) outputText += "\n";
                 currentLineIndex = item.lineIndex;
+                
                 outputText += `[${timeStr}]`;
+                if (item.agent) {
+                    outputText += `{agent:v${item.agent}}`;
+                }
             }
 
             outputText += `<${timeStr}>${item.word} `;
