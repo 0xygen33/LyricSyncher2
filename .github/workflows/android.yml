@@ -12,41 +12,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup environment
-        run: |
-          npm install -g cordova
-          # Installiamo anche l'interfaccia per gestire le icone se necessario
-          npm install -g cordova-res
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-      - name: Setup Java and Node
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+
+      - name: Install Tools
+        run: |
+          npm install -g cordova
 
       - name: Build App
         run: |
-          # 1. Creazione progetto
           cordova create myApp com.lyricsyncher2.app "LyricSyncher 2"
           cd myApp
-          
-          # 2. Sostituzione file base
           cp ../index.html www/index.html
           cp ../icon.png icon.png
           cp ../config.xml config.xml
-          
-          # 3. Aggiunta piattaforma
           cordova platform add android
-          
-          # 4. Build finale
-          cordova build android --debug -- --cdvBuildMultipleApks=true
+          cordova build android --debug
 
-            - name: Upload APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: LyricSyncher2-APK
-          path: myApp/platforms/android/app/build/outputs/apk/debug/LyricSyncher2.apk
-          
+          path: myApp/platforms/android/app/build/outputs/apk/debug/app-debug.apk
