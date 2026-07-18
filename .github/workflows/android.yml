@@ -25,35 +25,25 @@ jobs:
 
       - name: Create App Structure
         run: |
-          # Installa cordova
           npm install -g cordova
-          
-          # Crea il progetto
-          cordova create myApp com.lyricsyncher2.app LyricSyncher 2
+          # Creato con l'id e il nome corretti
+          cordova create myApp com.lyricsyncher2.app "LyricSyncher 2"
           cd myApp
-          
-          # Copia il tuo index.html
           cp ../index.html www/index.html
-          
-          # Aggiunge la piattaforma android
           cordova platform add android
-          
-          # Sovrascrive le icone predefinite di Android con la TUA icon.png
-          # Copia in varie densità per sicurezza
-          cp ../icon.png platforms/android/app/src/main/res/mipmap-mdpi/ic_launcher.png
-          cp ../icon.png platforms/android/app/src/main/res/mipmap-hdpi/ic_launcher.png
-          cp ../icon.png platforms/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
-          cp ../icon.png platforms/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
-          cp ../icon.png platforms/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
 
-      - name: Build APK
+      - name: Override Icons and Build
         run: |
           cd myApp
+          # Sovrascrive le icone con la tua icon.png prima del build
+          find platforms/android -name "ic_launcher*.png" -exec cp ../icon.png {} \;
+          
+          # Compila
           cordova build android --debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: LyricSyncher-APK
+          name: LyricSyncher2-APK
           path: myApp/platforms/android/app/build/outputs/apk/debug/app-debug.apk
           
