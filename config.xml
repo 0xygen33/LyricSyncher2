@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="com.lyricsyncher2.app" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+    <name>LyricSyncher 2</name>
+    <content src="index.html" />
+    <platform name="android">
+        <icon density="ldpi" src="icon.png" />
+        <icon density="mdpi" src="icon.png" />
+        <icon density="hdpi" src="icon.png" />
+        <icon density="xhdpi" src="icon.png" />
+        <icon density="xxhdpi" src="icon.png" />
+        <icon density="xxxhdpi" src="icon.png" />
+        <splash density="land-hdpi" src="icon.png" />
+        <preference name="AndroidWindowSplashScreenAnimatedIcon" value="icon.png" />
+    </platform>
+</widget>
