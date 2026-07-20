@@ -173,6 +173,31 @@
             margin-bottom: 15px;
         }
 
+        .speed-options {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 15px;
+            justify-content: center;
+        }
+
+        .speed-btn {
+            background-color: #222227;
+            color: var(--text-muted);
+            border: 1px solid #3f3f46;
+            padding: 8px 12px;
+            font-size: 13px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: auto;
+        }
+
+        .speed-btn.active {
+            background-color: var(--accent-color);
+            color: #000;
+            border-color: var(--accent-color);
+            font-weight: bold;
+        }
+
         .word-box {
             background: #222227;
             padding: 20px;
@@ -290,12 +315,20 @@
         <div class="input-group">
             <label>2. Paste the lyrics (divided by lines)</label>
             <textarea id="lyrics-input" placeholder="Paste here... each line will be considered a different verse."></textarea>
+            <button id="remove-timestamps-btn" class="btn-secondary" style="margin-top: 10px; padding: 10px; font-size: 13px;">Remove Timestamps</button>
         </div>
         <button id="start-sync-btn">Start Synchronization</button>
     </div>
 
     <div id="sync-workspace">
         <div class="progress" id="progress-indicator">Word 0 of 0</div>
+
+        <div class="speed-options">
+            <button class="speed-btn active" data-speed="1">1.0x</button>
+            <button class="speed-btn" data-speed="0.85">0.85x</button>
+            <button class="speed-btn" data-speed="0.75">0.75x</button>
+            <button class="speed-btn" data-speed="0.5">0.5x</button>
+        </div>
 
         <div class="word-box">
             <div class="next-label">Tap when you hear:</div>
@@ -332,10 +365,12 @@
     let wordsQueue = [];
     let currentWordIndex = 0;
     let formattedResult = "";
+    let currentSpeed = 1.0;
 
     const multiVoiceToggle = document.getElementById('multi-voice-toggle');
     const audioInput = document.getElementById('audio-input');
     const lyricsInput = document.getElementById('lyrics-input');
+    const removeTimestampsBtn = document.getElementById('remove-timestamps-btn');
     const startSyncBtn = document.getElementById('start-sync-btn');
     const setupArea = document.getElementById('setup-area');
 
@@ -343,6 +378,7 @@
     const audioPlayer = document.getElementById('audio-player');
     const activeWordSpan = document.getElementById('active-word');
     const progressIndicator = document.getElementById('progress-indicator');
+    const speedBtns = document.querySelectorAll('.speed-btn');
     
     const touchPad = document.getElementById('touch-pad');
     const touchPadAgents = document.getElementById('touch-pad-agents');
@@ -364,6 +400,21 @@
         return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
     }
 
+    removeTimestampsBtn.addEventListener('click', () => {
+        let text = lyricsInput.value;
+        text = text.replace(/\[\d{2}:\d{2}(?:[:\.]\d{2,3})?\]\s*/g, '');
+        lyricsInput.value = text;
+    });
+
+    speedBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            speedBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentSpeed = parseFloat(btn.getAttribute('data-speed'));
+            audioPlayer.playbackRate = currentSpeed;
+        });
+    });
+
     startSyncBtn.addEventListener('click', () => {
         const text = lyricsInput.value.trim();
         const file = audioInput.files[0];
@@ -382,6 +433,8 @@
         }
 
         audioPlayer.src = URL.createObjectURL(file);
+        audioPlayer.playbackRate = currentSpeed;
+
         originalLines = text.split('\n');
         wordsQueue = [];
         currentWordIndex = 0;
@@ -432,7 +485,9 @@
         if (audioPlayer.paused) audioPlayer.play();
         if (currentWordIndex >= wordsQueue.length) return;
 
+        // Ora legge correttamente il tempo assoluto della traccia
         wordsQueue[currentWordIndex].timestamp = audioPlayer.currentTime;
+        
         if (agent) {
             wordsQueue[currentWordIndex].agent = agent;
         }
