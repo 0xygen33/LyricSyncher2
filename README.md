@@ -1,3 +1,3 @@
 # LyricSyncher2
 
-probabilmente sarò l'unico a vederlo ma qui ci saranno update che non rilascerò al pubblico per sperimentare e non finire i crediti di netlify (ebrei di merda)
+I'll probably be the only one to see it but there will be updates here that will (maybe) get added and not run out of netlify credits
