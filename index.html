@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,6 +10,7 @@
             --bg-color: #0b0b0e;
             --container-bg: #16161a;
             --accent-color: #30dac5;
+            --bg-agent-color: #a855f7;
             --error-color: #ff5c5c;
             --text-color: #ffffff;
             --text-muted: #94a3b8;
@@ -54,26 +56,26 @@
             margin-bottom: 20px;
             border: 1px solid #3f3f46;
         }
-        
+
         .toggle-label {
             color: var(--text-muted);
             font-size: 14px;
             font-weight: bold;
         }
-        
+
         .switch {
             position: relative;
             display: inline-block;
             width: 50px;
             height: 26px;
         }
-        
+
         .switch input {
             opacity: 0;
             width: 0;
             height: 0;
         }
-        
+
         .slider {
             position: absolute;
             cursor: pointer;
@@ -85,7 +87,7 @@
             transition: .4s;
             border-radius: 34px;
         }
-        
+
         .slider:before {
             position: absolute;
             content: "";
@@ -97,11 +99,11 @@
             transition: .4s;
             border-radius: 50%;
         }
-        
+
         input:checked + .slider {
             background-color: var(--accent-color);
         }
-        
+
         input:checked + .slider:before {
             transform: translateX(24px);
         }
@@ -248,6 +250,12 @@
             touch-action: manipulation;
         }
 
+        .touch-pad.bg-pad {
+            background: linear-gradient(135deg, var(--bg-agent-color), #7e22ce);
+            box-shadow: 0 8px 25px rgba(168, 85, 247, 0.3);
+            color: white;
+        }
+
         .agent-pad {
             flex: 1;
             font-size: 32px;
@@ -337,16 +345,18 @@
 
         <div id="touch-pad-container">
             <div id="touch-pad" class="touch-pad">TAP (SYNC)</div>
-            
+
             <div id="touch-pad-agents">
                 <div id="touch-pad-v1" class="touch-pad agent-pad">V1</div>
                 <div id="touch-pad-v2" class="touch-pad agent-pad">V2</div>
             </div>
+
+            <div id="touch-pad-bg" class="touch-pad bg-pad" style="display: none;">BG (SYNC)</div>
         </div>
 
         <div class="control-rows">
-            <button id="undo-btn" class="btn-undo">↩ Undo</button>
-            <button id="skip-btn" class="btn-secondary">Skip Word ➡</button>
+            <button id="undo-btn" class="btn-undo">Undo</button>
+            <button id="skip-btn" class="btn-secondary">Skip Word</button>
         </div>
 
         <audio id="audio-player" controls></audio>
@@ -355,7 +365,7 @@
     <div id="result-area">
         <h1>Lyrics Synchronized!</h1>
         <pre id="output-lyrics"></pre>
-        <button id="copy-btn" style="margin-bottom: 10px;">📋 Copy Text</button>
+        <button id="copy-btn" style="margin-bottom: 10px;">Copy Text</button>
         <button id="restart-btn" class="btn-secondary">Synchronize Again</button>
     </div>
 </div>
@@ -379,12 +389,13 @@
     const activeWordSpan = document.getElementById('active-word');
     const progressIndicator = document.getElementById('progress-indicator');
     const speedBtns = document.querySelectorAll('.speed-btn');
-    
+
     const touchPad = document.getElementById('touch-pad');
     const touchPadAgents = document.getElementById('touch-pad-agents');
     const touchPadV1 = document.getElementById('touch-pad-v1');
     const touchPadV2 = document.getElementById('touch-pad-v2');
-    
+    const touchPadBg = document.getElementById('touch-pad-bg');
+
     const undoBtn = document.getElementById('undo-btn');
     const skipBtn = document.getElementById('skip-btn');
 
@@ -424,38 +435,48 @@
             return;
         }
 
-        if (multiVoiceToggle.checked) {
-            touchPad.style.display = 'none';
-            touchPadAgents.style.display = 'flex';
-        } else {
-            touchPad.style.display = 'flex';
-            touchPadAgents.style.display = 'none';
-        }
-
         audioPlayer.src = URL.createObjectURL(file);
         audioPlayer.playbackRate = currentSpeed;
 
         originalLines = text.split('\n');
         wordsQueue = [];
         currentWordIndex = 0;
+        let lineIndexCounter = 0;
 
-        originalLines.forEach((line, lineIndex) => {
+        originalLines.forEach((line) => {
             const trimmedLine = line.trim();
             if (trimmedLine === "") {
-                wordsQueue.push({ word: "", isLineStart: false, isEmptyLine: true, lineIndex });
+                wordsQueue.push({ displayWord: "", outputWord: "", isLineStart: false, isEmptyLine: true, lineIndex: lineIndexCounter++ });
                 return;
             }
 
-            const words = trimmedLine.split(/\s+/);
-            words.forEach((word, wordIndex) => {
-                wordsQueue.push({
-                    word: word,
-                    isLineStart: wordIndex === 0,
-                    isEmptyLine: false,
-                    lineIndex: lineIndex,
-                    timestamp: null,
-                    agent: null
+            // Divide il testo in sezioni separate quando trova le parentesi
+            const parts = trimmedLine.split(/(\([^)]+\))/g).map(p => p.trim()).filter(p => p !== "");
+            
+            parts.forEach(part => {
+                const isBg = part.startsWith('(') && part.endsWith(')');
+                const words = part.split(/\s+/);
+                let firstActualWord = true;
+
+                words.forEach(word => {
+                    const cleanWord = word.replace(/[()]/g, '');
+                    if (cleanWord === "") return;
+
+                    wordsQueue.push({
+                        displayWord: word, // Visualizzato con parentesi 
+                        outputWord: cleanWord, // Output pulito
+                        isLineStart: firstActualWord,
+                        isEmptyLine: false,
+                        lineIndex: lineIndexCounter,
+                        timestamp: null,
+                        agent: null,
+                        isBgLine: isBg,
+                        hasRewound: false
+                    });
+                    
+                    firstActualWord = false;
                 });
+                lineIndexCounter++;
             });
         });
 
@@ -475,8 +496,37 @@
         }
 
         const currentItem = wordsQueue[currentWordIndex];
-        activeWordSpan.textContent = currentItem.word;
+        activeWordSpan.textContent = currentItem.displayWord;
         progressIndicator.textContent = `Word ${currentWordIndex + 1} of ${wordsQueue.length}`;
+
+        // Gestione audio rewind per righe BG
+        if (currentItem.isLineStart && currentItem.isBgLine && !currentItem.hasRewound) {
+            let prevTimestamp = 0;
+            for (let i = currentWordIndex - 1; i >= 0; i--) {
+                if (wordsQueue[i].isLineStart && wordsQueue[i].timestamp !== null && !wordsQueue[i].isBgLine) {
+                    prevTimestamp = wordsQueue[i].timestamp;
+                    break;
+                }
+            }
+            audioPlayer.currentTime = prevTimestamp;
+            currentItem.hasRewound = true;
+        }
+
+        // Gestione visibilità tasti
+        if (currentItem.isBgLine) {
+            touchPad.style.display = 'none';
+            touchPadAgents.style.display = 'none';
+            touchPadBg.style.display = 'flex';
+        } else {
+            touchPadBg.style.display = 'none';
+            if (multiVoiceToggle.checked) {
+                touchPad.style.display = 'none';
+                touchPadAgents.style.display = 'flex';
+            } else {
+                touchPad.style.display = 'flex';
+                touchPadAgents.style.display = 'none';
+            }
+        }
 
         undoBtn.disabled = currentWordIndex === 0;
     }
@@ -485,13 +535,14 @@
         if (audioPlayer.paused) audioPlayer.play();
         if (currentWordIndex >= wordsQueue.length) return;
 
-        // Ora legge correttamente il tempo assoluto della traccia
         wordsQueue[currentWordIndex].timestamp = audioPlayer.currentTime;
-        
+
         if (agent) {
             wordsQueue[currentWordIndex].agent = agent;
+        } else if (wordsQueue[currentWordIndex].isBgLine) {
+            wordsQueue[currentWordIndex].agent = 'bg';
         }
-        
+
         currentWordIndex++;
         updateWorkspace();
     }
@@ -505,6 +556,9 @@
     touchPadV2.addEventListener('touchstart', (e) => { e.preventDefault(); handleSync('2'); });
     touchPadV2.addEventListener('mousedown', (e) => { e.preventDefault(); if (!('ontouchstart' in window)) handleSync('2'); });
 
+    touchPadBg.addEventListener('touchstart', (e) => { e.preventDefault(); handleSync('bg'); });
+    touchPadBg.addEventListener('mousedown', (e) => { e.preventDefault(); if (!('ontouchstart' in window)) handleSync('bg'); });
+
     undoBtn.addEventListener('click', () => {
         if (currentWordIndex > 0) {
             currentWordIndex--;
@@ -513,6 +567,11 @@
             }
             wordsQueue[currentWordIndex].timestamp = null;
             wordsQueue[currentWordIndex].agent = null;
+            
+            if (wordsQueue[currentWordIndex].isLineStart) {
+                wordsQueue[currentWordIndex].hasRewound = false;
+            }
+            
             updateWorkspace();
         }
     });
@@ -520,6 +579,9 @@
     skipBtn.addEventListener('click', () => {
         if (currentWordIndex < wordsQueue.length) {
             wordsQueue[currentWordIndex].timestamp = currentWordIndex > 0 ? wordsQueue[currentWordIndex-1].timestamp : 0;
+            if (wordsQueue[currentWordIndex].isBgLine) {
+                wordsQueue[currentWordIndex].agent = 'bg';
+            }
             currentWordIndex++;
             updateWorkspace();
         }
@@ -544,34 +606,20 @@
             if (item.isLineStart) {
                 if (currentLineIndex !== -1) outputText += "\n";
                 currentLineIndex = item.lineIndex;
-                
+
                 outputText += `[${timeStr}]`;
-                if (item.agent) {
+                if (item.agent === 'bg') {
+                    outputText += `{agent:bg}`;
+                } else if (item.agent) {
                     outputText += `{agent:v${item.agent}}`;
                 }
             }
 
-            outputText += `<${timeStr}>${item.word} `;
+            outputText += `<${timeStr}>${item.outputWord} `;
         });
 
         formattedResult = outputText.split('\n').map(line => line.trimEnd()).join('\n');
         outputLyrics.textContent = formattedResult;
     }
 
-    copyBtn.addEventListener('click', () => {
-        navigator.clipboard.writeText(formattedResult).then(() => {
-            const origText = copyBtn.textContent;
-            copyBtn.textContent = "✓ Copied to clipboard!";
-            setTimeout(() => copyBtn.textContent = origText, 2000);
-        });
-    });
-
-    restartBtn.addEventListener('click', () => {
-        resultArea.style.display = 'none';
-        setupArea.style.display = 'block';
-        lyricsInput.value = "";
-        audioInput.value = "";
-    });
-</script>
-</body>
-</html>
+    copyBtn.ad
